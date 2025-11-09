@@ -1,0 +1,8 @@
+{
+  "type": "module",
+  "scripts": {
+    "ingest": "node scripts/ingest.mjs",
+    "ingest:watch": "node scripts/ingest-watch.mjs",
+    "ping": "node scripts/ping.mjs"
+  }
+}

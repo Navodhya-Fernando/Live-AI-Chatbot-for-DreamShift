@@ -1,0 +1,12 @@
+name = "dreamshift-bot"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+[ai]
+binding = "AI"
+
+[[vectorize]]
+binding   = "VEC"
+index_name = "dreamshift-kb"   # must exist in your account; dims must be 384
+
+# (optional) If you're using preview envs, add [env.preview] with the same bindings

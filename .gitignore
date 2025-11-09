@@ -1,0 +1,20 @@
+# Node & Wrangler
+node_modules/
+.wrangler/
+.wrangler/tmp/
+dist/
+build/
+
+# Environment / secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Python cache
+__pycache__/
+*.pyc
+
+# OS junk
+.DS_Store
+Thumbs.db

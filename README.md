@@ -111,7 +111,7 @@ _All screenshots live in `/demo` and render automatically on GitHub._
 
 | Popup | Conversation | KB-powered reply |
 |---|---|---|
-| ![Popup](demo/demo1.png) | ![Conversation](demo/demo2.png) | ![View](demo/demo3.png) |
+| ![Demo1](demo/demo1.png) | ![Demo2](demo/demo2.png) | ![Demo3](demo/demo3.png) |
 
 ---
 

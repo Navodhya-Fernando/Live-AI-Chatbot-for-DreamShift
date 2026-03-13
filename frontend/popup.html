@@ -1,0 +1,475 @@
+<!-- DreamShift AI – Elementor Popup Injected Widget (no white box) -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+
+<div id="ds-chat-mount"></div>
+
+<script>
+(function(){
+  // Avoid duplicate init
+  if (window.DREAMSHIFT_AI_LOADED) return;
+  window.DREAMSHIFT_AI_LOADED = true;
+
+  // Don't run inside Elementor editor preview
+  if (window.elementorFrontend && window.elementorFrontend.isEditMode && window.elementorFrontend.isEditMode()) {
+    return;
+  }
+
+  const API = "https://dreamshift-bot.dreamshift-kb.workers.dev/chat";
+  const WHATSAPP = "https://wa.me/94716936096";
+
+  function injectChat(){
+    if (!document.body || document.getElementById("ds-launch")) return;
+
+    // ---------- Hide the popup shell ----------
+    // Our HTML widget lives inside an Elementor popup modal; remove its visual box.
+    const mount = document.getElementById("ds-chat-mount");
+    if (mount) {
+      const modal = mount.closest(".elementor-popup-modal");
+      if (modal) {
+        const msg = modal.querySelector(".dialog-message");
+        const content = modal.querySelector(".dialog-widget-content");
+        if (msg) {
+          msg.style.background = "transparent";
+          msg.style.boxShadow = "none";
+          msg.style.padding = "0";
+        }
+        if (content) {
+          content.style.background = "transparent";
+          content.style.boxShadow = "none";
+          content.style.padding = "0";
+        }
+        // Hide close button if present
+        const closeBtn = modal.querySelector(".dialog-close-button");
+        if (closeBtn) closeBtn.style.display = "none";
+      }
+    }
+
+    // ---------- Styles ----------
+    const style = document.createElement("style");
+    style.textContent = `
+      :root{
+        --ds-header-bg:#411c30;
+        --ds-header-text:#f6b900;
+        --ds-chat-bg:#ffffff;
+        --ds-chat-text:#24101a;
+        --ds-border:#eaeaea;
+        --ds-primary:#411c30;
+        --ds-primary-dark:#24101a;
+        --ds-radius:14px;
+        --ds-shadow:0 18px 40px rgba(0,0,0,.18);
+      }
+
+      /* Launcher */
+      #ds-launch{
+        position:fixed;
+        right:83px;
+        bottom:27px;
+        z-index:999998;
+        display:flex;
+        align-items:center;
+        gap:8px;
+        padding:14px 18px;
+        border:0;
+        border-radius:999px;
+        background:var(--ds-primary);
+        color:#fff;
+        cursor:pointer;
+        font:600 15px/1.1 "Poppins",system-ui,sans-serif;
+        box-shadow:0 12px 34px rgba(0,0,0,.18);
+        transition:transform .12s ease, filter .12s ease;
+      }
+      #ds-launch:hover{
+        transform:translateY(-1px);
+        filter:brightness(1.05);
+      }
+      #ds-launch svg{ width:18px; height:18px; }
+
+      /* Chat Window */
+      #ds-bot{
+        position:fixed;
+        right:18px;
+        bottom:78px;
+        z-index:999999;
+        width:380px;
+        max-width:95vw;
+        max-height:70vh;
+        overflow:hidden;
+        background:var(--ds-chat-bg);
+        color:var(--ds-chat-text);
+        border:1px solid var(--ds-border);
+        border-radius:var(--ds-radius);
+        box-shadow:var(--ds-shadow);
+        font-family:"Poppins",system-ui,sans-serif;
+        font-size:13px;
+        display:none;
+        opacity:0;
+        transform:translateY(12px);
+        transition:opacity .22s ease, transform .22s ease;
+      }
+      #ds-bot.open{
+        opacity:1;
+        transform:translateY(0);
+      }
+
+      /* Header */
+      #ds-head{
+        display:flex;
+        align-items:center;
+        gap:10px;
+        padding:12px 14px;
+        border-bottom:1px solid var(--ds-border);
+        background:var(--ds-header-bg);
+        color:var(--ds-header-text);
+      }
+      #ds-head img{ height:22px; }
+      #ds-title{ font-weight:600; font-size:17px; }
+
+      /* Log */
+      #ds-log{
+        height:360px;
+        max-height:50vh;
+        overflow:auto;
+        padding:14px 12px;
+        scrollbar-width:thin;
+        scrollbar-color:#ccc transparent;
+      }
+      #ds-log::-webkit-scrollbar{ width:8px; }
+      #ds-log::-webkit-scrollbar-thumb{
+        background:#ccc;
+        border-radius:8px;
+      }
+
+      /* Messages */
+      .ds-msg{ margin:12px 0; }
+      .ds-role{
+        font-weight:600;
+        margin-bottom:6px;
+        color:#1f1f1f;
+      }
+      .ds-role.ds-assistant{ color:var(--ds-primary); }
+
+      .ds-text{
+        background:#f9f9fb;
+        border:1px solid #eee;
+        padding:10px 12px;
+        border-radius:12px;
+        line-height:1.55;
+        white-space:pre-wrap;
+      }
+      .ds-role.ds-assistant + .ds-text{
+        background:#faf6fb;
+        border-color:#f0e7f2;
+      }
+      .ds-role:not(.ds-assistant) + .ds-text{
+        background:#fff;
+        border-color:#ddd;
+      }
+
+      /* Markdown basics */
+      .ds-text p{ margin:0 0 8px; }
+      .ds-text ul,
+      .ds-text ol{
+        margin:0 0 8px 18px;
+        padding-left:18px;
+      }
+      .ds-text ul{ list-style:disc; }
+      .ds-text ol{ list-style:decimal; }
+      .ds-text strong{ font-weight:600; }
+
+      /* Headings */
+      .ds-text h1,
+      .ds-text h2,
+      .ds-text h3{
+        margin:8px 0 6px;
+        font-weight:600;
+        line-height:1.35;
+        color:var(--ds-primary);
+        position:relative;
+        padding-left:10px;
+      }
+      .ds-text h1{ font-size:18px; }
+      .ds-text h2{ font-size:16px; }
+      .ds-text h3{ font-size:14px; }
+      .ds-text h1::before,
+      .ds-text h2::before,
+      .ds-text h3::before{
+        content:"";
+        position:absolute;
+        left:0;
+        top:0.35em;
+        width:4px;
+        height:1.1em;
+        border-radius:2px;
+        background:var(--ds-header-text);
+      }
+
+      /* Typing dots */
+      .ds-typing .ds-dot{
+        width:6px;
+        height:6px;
+        background:#bdbdbd;
+        border-radius:50%;
+        display:inline-block;
+        margin:0 2px;
+        animation:dsblink 1.2s infinite;
+      }
+      .ds-typing .ds-dot:nth-child(2){ animation-delay:.2s; }
+      .ds-typing .ds-dot:nth-child(3){ animation-delay:.4s; }
+      @keyframes dsblink{
+        0%,80%,100%{ opacity:.2; }
+        40%{ opacity:1; }
+      }
+
+      /* Input */
+      #ds-form{
+        display:flex;
+        gap:8px;
+        padding:12px;
+        border-top:1px solid var(--ds-border);
+        background:#fff;
+      }
+      .ds-input-wrap{
+        position:relative;
+        flex:1;
+      }
+      #ds-input{
+        width:100%;
+        padding:12px 52px 12px 12px;
+        border:1px solid #ddd;
+        border-radius:12px;
+        font-family:"Poppins",system-ui,sans-serif;
+        font-size:15px;
+        color:var(--ds-chat-text);
+        background:#fff;
+        outline:none;
+        transition:border-color .12s ease, box-shadow .12s ease;
+      }
+      #ds-input:focus{
+        border-color:#d3c2d0;
+        box-shadow:0 0 0 3px rgba(65,28,48,.08);
+      }
+
+      /* Send Button */
+      #ds-send-ico{
+        position:absolute;
+        right:8px;
+        top:50%;
+        transform:translateY(-50%);
+        width:44px;
+        height:40px;
+        border-radius:10px;
+        border:0;
+        background:var(--ds-primary);
+        color:#fff;
+        cursor:pointer;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        transition:background .2s ease, transform .1s ease;
+        box-shadow:0 2px 6px rgba(0,0,0,.12);
+      }
+      #ds-send-ico:hover{ background:var(--ds-primary-dark); }
+      #ds-send-ico:active{ transform:translateY(1px); }
+      #ds-send-ico svg{
+        width:18px;
+        height:18px;
+        fill:#fff;
+      }
+
+      @media (max-width:480px){
+        #ds-bot{
+          bottom:84px;
+          width:94vw;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+
+    // ---------- DOM ----------
+    const launch = document.createElement("button");
+    launch.id = "ds-launch";
+    launch.setAttribute("aria-label","Open DreamShift AI");
+    launch.innerHTML = `
+      <span>Chat with us</span>
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z"
+          stroke="white" stroke-width="2" stroke-linejoin="round"></path>
+      </svg>`;
+    document.body.appendChild(launch);
+
+    const bot = document.createElement("div");
+    bot.id = "ds-bot";
+    bot.setAttribute("role","dialog");
+    bot.setAttribute("aria-label","DreamShift AI");
+    bot.innerHTML = `
+      <div id="ds-head">
+        <img src="https://dreamshift.net/wp-content/uploads/2025/09/Primary.png" alt="DreamShift Logo" />
+        <div id="ds-title">DreamShift AI</div>
+      </div>
+      <div id="ds-log" aria-live="polite"></div>
+      <form id="ds-form">
+        <div class="ds-input-wrap">
+          <input id="ds-input" placeholder="Ask about pricing, packages, timelines…" autocomplete="off" />
+          <button id="ds-send-ico" type="button" aria-label="Send">
+            <svg viewBox="0 0 24 24"><path d="M3 11l18-8-8 18-2-7-8-3z"/></svg>
+          </button>
+        </div>
+      </form>`;
+    document.body.appendChild(bot);
+
+    // ---------- Logic ----------
+    const log = document.getElementById("ds-log");
+    const form = document.getElementById("ds-form");
+    const input = document.getElementById("ds-input");
+    const sendIco = document.getElementById("ds-send-ico");
+    let history = [];
+
+    function toggle(){
+      const open = bot.classList.contains("open");
+      if (open){
+        bot.classList.remove("open");
+        setTimeout(()=>{ bot.style.display="none"; }, 200);
+      } else {
+        bot.style.display = "block";
+        requestAnimationFrame(()=> bot.classList.add("open"));
+        if (input) input.focus();
+      }
+    }
+    launch.addEventListener("click", toggle);
+
+    const esc = s => (s||"").replace(/[&<>]/g, c =>
+      c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;"
+    );
+
+    function inlineMD(s){
+      let t = esc(s);
+      t = t.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
+      t = t.replace(/\*(.+?)\*/g,"<em>$1</em>");
+      return t;
+    }
+
+    function renderMD(md){
+      const lines = (md||"").split(/\r?\n/);
+      let html="", inUL=false, inOL=false;
+      const close=()=>{ if(inUL){html+="</ul>";inUL=false} if(inOL){html+="</ol>";inOL=false} };
+      for(const raw of lines){
+        const l = raw.trimEnd();
+
+        const h = l.match(/^\s*(#{1,6})\s+(.+)$/);
+        if (h){
+          close();
+          const lv = Math.min(h[1].length,3);
+          html += `<h${lv}>${inlineMD(h[2])}</h${lv}>`;
+          continue;
+        }
+
+        if (/^\s*[-*]\s+/.test(l)){
+          if(!inUL){close(); html+="<ul>"; inUL=true;}
+          html += "<li>"+inlineMD(l.replace(/^\s*[-*]\s+/,""))+"</li>";
+          continue;
+        }
+
+        if (/^\s*\d+\.\s+/.test(l)){
+          if(!inOL){close(); html+="<ol>"; inOL=true;}
+          html += "<li>"+inlineMD(l.replace(/^\s*\d+\.\s+/,""))+"</li>";
+          continue;
+        }
+
+        if (l.trim()===""){
+          close();
+          continue;
+        }
+
+        close();
+        html += "<p>"+inlineMD(l)+"</p>";
+      }
+      close();
+      return html || "<p></p>";
+    }
+
+    function add(role, html){
+      const wrap = document.createElement("div");
+      wrap.className = "ds-msg";
+      const rcls = role==="DreamShift AI" ? "ds-assistant" : "ds-user";
+      wrap.innerHTML =
+        `<div class="ds-role ${rcls}">${role}</div><div class="ds-text">${html}</div>`;
+      log.appendChild(wrap);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function addTyping(){
+      const t = document.createElement("div");
+      t.className = "ds-msg ds-typing";
+      t.innerHTML =
+        `<div class="ds-role ds-assistant">DreamShift AI</div>
+         <div><span class="ds-dot"></span><span class="ds-dot"></span><span class="ds-dot"></span></div>`;
+      log.appendChild(t);
+      log.scrollTop = log.scrollHeight;
+      return t;
+    }
+
+    function handoff(){
+      return `<div class="ds-muted" style="margin-top:8px">
+        Need a human? <a href="${WHATSAPP}" target="_blank" rel="noopener">WhatsApp us</a>
+      </div>`;
+    }
+
+    async function sendMessage(q){
+      if (!q) return;
+      add("You", renderMD(q));
+      const typing = addTyping();
+      try{
+        const res = await fetch(API, {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({ message:q, history })
+        });
+        const raw = await res.text();
+        let data;
+        try { data = JSON.parse(raw); } catch { data = { reply: raw }; }
+
+        typing.remove();
+        history.push({ role:"user", content:q });
+        if (data.reply){
+          history.push({ role:"assistant", content:data.reply });
+        }
+        add("DreamShift AI", renderMD(data.reply || "Sorry—no reply.") + handoff());
+      } catch (e){
+        typing.remove();
+        add("DreamShift AI",
+          renderMD("Sorry—something went wrong. Please try again later.") + handoff()
+        );
+      }
+    }
+
+    form.addEventListener("submit", function(e){
+      e.preventDefault();
+      const q = (input.value || "").trim();
+      if (!q) return;
+      input.value = "";
+      sendMessage(q);
+    });
+
+    sendIco.addEventListener("click", function(e){
+      e.preventDefault();
+      const q = (input.value || "").trim();
+      if (!q) return;
+      input.value = "";
+      sendMessage(q);
+    });
+
+    input.addEventListener("keydown", function(e){
+      if (e.key === "Enter" && !e.shiftKey){
+        e.preventDefault();
+        form.dispatchEvent(new Event("submit", { cancelable:true }));
+      }
+    });
+  }
+
+  if (document.readyState === "complete" || document.readyState === "interactive") {
+    injectChat();
+  } else {
+    document.addEventListener("DOMContentLoaded", injectChat);
+  }
+})();
+</script>
